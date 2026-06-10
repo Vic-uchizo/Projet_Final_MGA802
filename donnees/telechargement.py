@@ -16,6 +16,11 @@ import requests
 # Dossier ou on sauvegarde les fichiers TLE telecharges
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
 
+# Les groupes de donnees utilises par le projet (choix d'equipe) :
+#   - "starlink"           : les satellites (LEO, ~10 500 objets)
+#   - "cosmos-2251-debris" : les debris de la collision de 2009 (LEO, ~600 objets)
+GROUPES = ["starlink", "cosmos-2251-debris"]
+
 
 def telecharger_tle(groupe, fichier):
     """Telecharge le TLE d'un groupe CelesTrak et le sauvegarde en local.
@@ -63,6 +68,8 @@ def obtenir_fichier_tle(groupe):
 
 
 if __name__ == "__main__":
-    # Demonstration : on s'assure d'avoir le fichier brut Starlink en local.
-    chemin = obtenir_fichier_tle("starlink")
-    print("Fichier TLE pret :", chemin)
+    # On s'assure d'avoir TOUS les fichiers bruts du projet en local
+    # (telecharges une seule fois chacun).
+    for groupe in GROUPES:
+        chemin = obtenir_fichier_tle(groupe)
+        print("Fichier TLE pret :", chemin)
