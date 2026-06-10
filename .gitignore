@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Données téléchargées depuis CelesTrak (on NE commite PAS les TLE,
+# le script les re-télécharge ; garder seulement un petit exemple si besoin)
+*.tle
+data/
+donnees/*.txt
+!donnees/exemple_*.txt
+
+# Documentation Sphinx générée (on ne pousse que les sources, pas le build)
+docs/_build/
+docs/build/
+
+# Sorties générées par le programme (images, animations)
+*.png
+*.gif
+*.mp4
+!docs/**/*.png
+
+# Source du rapport (on ne pousse que le PDF)
+rapport.md
+
+SUIVI_PROJET.md
