@@ -23,8 +23,8 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Données téléchargées depuis CelesTrak (on NE commite PAS les TLE,
-# le script les re-télécharge ; garder seulement un petit exemple si besoin)
+# Données téléchargées depuis CelesTrak : on ne les commite PAS.
+# Le script les re-télécharge automatiquement au 1er lancement (une seule fois).
 *.tle
 data/
 donnees/*.txt
@@ -44,3 +44,4 @@ docs/build/
 rapport.md
 
 SUIVI_PROJET.md
+starlink.txt 
