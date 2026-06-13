@@ -3,3 +3,50 @@ tianhe_trajectoire.csv
 stations.txt
 debris.txt
 starlink.txt
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Données téléchargées depuis CelesTrak : on ne les commite PAS.
+# Le script les re-télécharge automatiquement au 1er lancement (une seule fois).
+*.tle
+data/
+donnees/*.txt
+!donnees/exemple_*.txt
+
+# Documentation Sphinx générée (on ne pousse que les sources, pas le build)
+docs/_build/
+docs/build/
+
+# Sorties générées par le programme (images, animations)
+*.png
+*.gif
+*.mp4
+!docs/**/*.png
+
+# Source du rapport (on ne pousse que le PDF)
+rapport.md
+
+SUIVI_PROJET.md
+starlink.txt 
