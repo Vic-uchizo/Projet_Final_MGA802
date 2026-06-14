@@ -39,8 +39,13 @@ def generer_graphique_satellites(positions_satellites,names):
     ax.scatter(sat_x, sat_y, sat_z, color='orange', s=50, marker='o', label='Satellites')
     
     # Ajout des étiquettes textuelles
-    for i, (x, y, z) in enumerate(positions_satellites):
-        ax.text(x, y, z, names[i], color='black', fontsize=9)
+    if isinstance(names, str):
+        ax.text(sat_x[0] + 100,sat_y[0] + 100,sat_z[0] + 100,names,color="black",fontsize=10,weight="bold",)
+        
+    # Si jamais plusieurs satellites
+    else:
+        for i, (x, y, z) in enumerate(positions_satellites):
+            ax.text(x + 100,y + 100,z + 100,str(names[i]),color="black",fontsize=9,)
 
     # 3. CONFIGURATION DES AXES
     ax.set_xlabel('X (km)')
@@ -49,6 +54,7 @@ def generer_graphique_satellites(positions_satellites,names):
     ax.set_aspect('equal')
     ax.legend()
     
+    st.pyplot(fig)
     return fig
 
 # --- Test d'interface ---
