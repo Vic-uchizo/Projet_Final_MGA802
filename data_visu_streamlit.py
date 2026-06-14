@@ -53,15 +53,15 @@ def generer_graphique_satellites(positions_satellites,names):
 
 # --- Test d'interface ---
 
-# # Code qui s'exécute dans Streamlit
-# positions = np.array([
-#     [7000, 0, 0],           # Sat 1
-#     [0, 7000, 0],           # Sat 2
-# ])
-# names = ['Galile','Starlink']
-# # Génération du graphique
-# fig_espace = generer_graphique_satellites(positions,names)
+ # Code qui s'exécute dans Streamlit
+positions = np.array([
+ [7000, 0, 0],           # Sat 1
+ [0, 7000, 0],           # Sat 2
+])
+names = ['Galile','Starlink']
+# Génération du graphique
+fig_espace = generer_graphique_satellites(positions,names)
 
-# # Affichage sécurisé dans Streamlit
-# st.pyplot(fig_espace)
+# Affichage sécurisé dans Streamlit
+st.pyplot(fig_espace)
 
