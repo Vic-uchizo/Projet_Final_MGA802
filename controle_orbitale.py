@@ -3,6 +3,7 @@ import math
 
 from scipy import constants
 from dataclasses import dataclass
+import numpy as np
 
 from sgp4.api import Satrec, jday
 from datetime import datetime, timezone
@@ -41,6 +42,52 @@ def SatelliteCoordinates(Line1, Line2):
     print("Error = ", Error)
     print("Position = ", Position)
     print("Velocity = ", Velocity)
+
+    return Position
+
+def DebrisCoordinates(Line1, Line2):
+
+    Debris = Satrec.twoline2rv(Line1, Line2)
+
+    CrtTime = datetime.now(ZoneInfo("America/New_York"))
+
+    JulianDay, JulianFraction = jday(CrtTime.year, CrtTime.month, CrtTime.day,
+                                     CrtTime.hour, CrtTime.minute,
+                                     CrtTime.second + CrtTime.microsecond)
+
+    print("CrtTime = ", CrtTime)
+    print("Julian Day = ", JulianDay)
+    print("Julian Fraction = ", JulianFraction)
+
+    #Retrieve position information
+    Error,Position, Velocity = Debris.sgp4(JulianDay, JulianFraction)
+
+    print("Error = ", Error)
+    print("Position = ", Position)
+    print("Velocity = ", Velocity)
+
+    return Position
+
+
+def ComputeCollisionDistance():
+
+    #every minute
+    for i in range(2):
+
+        SatCoord = np.array(SatelliteCoordinates(Line1, Line2))
+        DebrisCoord = np.array(DebrisCoordinates(Line1, Line2))
+
+        print("SatCoord = ", type(SatCoord))
+        print("DebrisCoord = ", DebrisCoord)
+
+        CollisionDistance = np.linalg.norm(SatCoord - DebrisCoord)
+        print("CollisionDistance = ", CollisionDistance)
+
+        if CollisionDistance < 5:
+            print("CollisionDistance less than 5= ", CollisionDistance)
+
+
+
 
 
 def R1R2TransferTime(r1,r2):
@@ -90,4 +137,8 @@ if __name__ == '__main__':
 
     print(" DelV1 = ", OrbitTransfer(Manuver1.Radius1, Manuver1.Radius2,Manuver1.DeltaInclination))
 
-    SatelliteCoordinates(Line1,Line2)
+    print("SatelliteCoordinates(Line1,Line2): ",type(SatelliteCoordinates(Line1,Line2)))
+
+    #DebrisCoordinates(Line1, Line2)
+
+    ComputeCollisionDistance()
