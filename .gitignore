@@ -1,3 +1,8 @@
+iss_trajectoire.csv
+tianhe_trajectoire.csv
+stations.txt
+debris.txt
+starlink.txt
 # Python
 __pycache__/
 *.py[cod]
