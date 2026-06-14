@@ -43,8 +43,8 @@ def calculer_trajectoire_orbite(satellite, temps_debut, duree_minutes=100, nb_po
     L'orbite basse typique (ex: Starlink) dure environ 90-100 minutes.
     """
     ts = load.timescale()
-    temps_fin = ts.utc(temps_debut.utc_datetime() + timedelta(minutes=duree_minutes))
-    t_array = ts.linspace(temps_debut, temps_fin, nb_points)
+    temps_fin_tt = temps_debut.tt + duree_minutes/(24 * 60)
+    t_array = ts.tt_jd(np.linspace(temps_debut.tt, temps_fin_tt, nb_points))
     
     # Récupère les positions X, Y, Z en km (Référentiel géocentrique)
     positions = satellite.at(t_array).position.km
@@ -57,7 +57,8 @@ def calculer_trajectoire_orbite(satellite, temps_debut, duree_minutes=100, nb_po
     })
     return df_orbite
 
-def detecter_collisions(satellite_cible, autres_satellites, temps_debut, temps_fin, seuil_alerte_km=10.0):
+def detecter_collisions(satellite_cible, autres_satellites, temps_debut, temps_fin,
+                        seuil_alerte_km=10.0):
     """
     Détecte les rapprochements dangereux entre un satellite cible et une liste d'autres satellites.
     
@@ -76,13 +77,13 @@ def detecter_collisions(satellite_cible, autres_satellites, temps_debut, temps_f
     # ÉTAPE 1 : Passe grossière (1 point par minute)
     # ---------------------------------------------------------
     # Calcul du nombre de minutes entre le début et la fin
-    duree_minutes = int((temps_fin - temps_debut) * 24 * 60)
+    duree_minutes = int((temps_fin.tt - temps_debut.tt) * 24 * 60)
     
     if duree_minutes <= 0:
         return pd.DataFrame() # Retourne un dataframe vide si la durée est invalide
 
     # Création du tableau de temps grossier
-    t_grossier = ts.linspace(temps_debut, temps_fin, duree_minutes)
+    t_grossier = ts.tt_jd(np.linspace(temps_debut.tt, temps_fin.tt, duree_minutes))
     
     # Calcul des positions de la cible pour toute la période (en kilomètres)
     # La forme de l'array sera (3, nombre_de_minutes) pour X, Y, Z
@@ -122,7 +123,7 @@ def detecter_collisions(satellite_cible, autres_satellites, temps_debut, temps_f
             t_fin_fin = t_grossier[index_fin_fin]
             
             # 240 secondes dans 4 minutes
-            t_fin = ts.linspace(t_fin_debut, t_fin_fin, 240)
+            t_fin = ts.tt_jd(np.linspace(t_fin_debut.tt, t_fin_fin.tt, 240))
             
             # Recalcul précis
             pos_cible_fine = satellite_cible.at(t_fin).position.km
