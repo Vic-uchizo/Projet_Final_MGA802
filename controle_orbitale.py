@@ -4,6 +4,10 @@ import math
 from scipy import constants
 from dataclasses import dataclass
 
+from sgp4.api import Satrec, jday
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
 @dataclass(frozen=True)
 class OrbitalParameters:
     Radius1 : float
@@ -12,6 +16,32 @@ class OrbitalParameters:
 
 
 MASS_EARTH = 5.9722e24
+
+Line1 = "1 22675U 93036A   26164.20302990  .00000068  00000+0  34083-4 0  9992"
+Line2 = "2 22675  74.0398 342.4910 0024432  20.6073 339.6058 14.33255400723879"
+
+
+def SatelliteCoordinates(Line1, Line2):
+
+    Satellite = Satrec.twoline2rv(Line1, Line2)
+
+    CrtTime = datetime.now(ZoneInfo("America/New_York"))
+
+    JulianDay, JulianFraction = jday(CrtTime.year, CrtTime.month, CrtTime.day,
+                                     CrtTime.hour, CrtTime.minute,
+                                     CrtTime.second + CrtTime.microsecond)
+
+    print("CrtTime = ", CrtTime)
+    print("Julian Day = ", JulianDay)
+    print("Julian Fraction = ", JulianFraction)
+
+    #Retrieve position information
+    Error,Position, Velocity = Satellite.sgp4(JulianDay, JulianFraction)
+
+    print("Error = ", Error)
+    print("Position = ", Position)
+    print("Velocity = ", Velocity)
+
 
 def R1R2TransferTime(r1,r2):
 
@@ -42,13 +72,14 @@ def OrbitTransfer(r1,r2, InclinationChange):
     print("Transfer Time", R1R2TransferTime(r1,r2))
 
     # As per reference, it is easy to perform inclination change when performing orbit tx
-    #Todo: if inclination change is needed then perform inclination change, if not no inclination change
 
     if(InclinationChange > 0.0):
         InclinationChange(InclinationChange, VelAtOrbit)
 
-
     return DelV1
+
+
+
 
 if __name__ == '__main__':
 
@@ -58,3 +89,5 @@ if __name__ == '__main__':
     Manuver1 = OrbitalParameters(Radius1 = 300000,Radius2 = 700000,DeltaInclination = 0)
 
     print(" DelV1 = ", OrbitTransfer(Manuver1.Radius1, Manuver1.Radius2,Manuver1.DeltaInclination))
+
+    SatelliteCoordinates(Line1,Line2)
