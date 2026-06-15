@@ -171,8 +171,8 @@ if __name__ == '__main__':
     import os
     
     # --- SIMULATION DES DEUX FICHIERS ---
-    fichier_starlink = "starlink.txt"
-    fichier_debris = "debris.txt"
+    fichier_starlink = "donnees/starlink.txt"
+    fichier_debris = "donnees/cosmos-2251-debris.txt"
     
     if not os.path.exists(fichier_starlink):
         with open(fichier_starlink, "w") as f:
@@ -181,18 +181,11 @@ if __name__ == '__main__':
 2 44713  53.0543 323.7088 0001407  92.5186 267.5956 15.06399086103637""")
 
 
- #   if not os.path.exists(fichier_debris):
- #       with open(fichier_debris, "w") as f:
- #           f.write("""DEBRIS 1
-#1 36086U 09060A   21289.46241319  .00008067  00000+0  15344-3 0  9991
-#2 36086  53.0543 323.7088 0004931  92.6343 267.4689 15.06399086103632""")
-
-
     if not os.path.exists(fichier_debris):
         with open(fichier_debris, "w") as f:
-           f.write("""DEBRIS 1                   
-1 99001U 21001A   26165.00000000  .00002000  00000-0  15000-3 0  9994
-2 99001  53.0543 323.7088 0001500  92.5186 296.0956 15.56399086  1234""")
+            f.write("""DEBRIS 1
+#1 36086U 09060A   21289.46241319  .00008067  00000+0  15344-3 0  9991
+#2 36086  53.0543 323.7088 0004931  92.6343 267.4689 15.06399086103632""")
 
 
     # 1. Chargement des données
