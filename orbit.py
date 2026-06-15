@@ -1,7 +1,15 @@
+import math
+
 import numpy as np
 import pandas as pd
 from skyfield.api import load
 from datetime import timedelta
+
+from skyfield.elementslib import semi_major_axis
+
+GM        = 3.986004418e14   # m³/s²  — standard gravitational parameter (Earth)
+R_EARTH   = 6_371_000.0      # m      — mean Earth radius
+
 
 def charger_donnees_tle(chemin_fichier):
     """
@@ -163,6 +171,60 @@ def detecter_collisions(satellite_cible, autres_satellites, temps_debut, temps_f
     # Conversion des résultats en DataFrame pour une utilisation facile dans Streamlit
     df_resultats = pd.DataFrame(resultats)
     return df_resultats
+
+def InclinationChange(InclChange,VelAtOrbit):
+
+    DelVplane = 2 * VelAtOrbit * math.sin((math.radians(InclChange))/2)
+
+    return DelVplane
+
+def orbit_transfer(r1,r2, inclination_change = 0.0):
+
+    #Current orbit velocity
+    v1 = math.sqrt(GM / r1)
+
+    #target orbit velocity
+    v2 = math.sqrt(GM / r2)
+
+    #velocity at either ends of the transfer ellipse
+    a_t = (r1 + r2) / 2.0
+
+    #velocity at perigee of ellipse
+    v_pg = math.sqrt(GM * (2/r1 - 1/a_t))
+    v_ag = math.sqrt(GM * (2/r2 - 1/a_t))
+
+    #enter transfer ellipse by accelerating at perigee
+    dv1 = abs(v_pg - v1)
+
+    #decelerate at apogee of target orbit
+    dv2 = abs(v2 - v_ag)
+
+    transfer_time = math.pi * math.sqrt(a_t ** 3 / GM)
+
+    #if inclination_change > 0.0:
+        #dv_inclination = inclination_change(inclination_change, v_ag)
+
+def orbital_radius(satellite):
+
+    rev_per_day = satellite.model.no_kozai / (2* math.pi) * 1440
+    rad_per_sec = (rev_per_day * 2 * math.pi) / 86400
+    semi_major_axis = (GM / rad_per_sec**2) ** (1/3)
+    return semi_major_axis
+
+def evasive_manuever(satellite, df_collisions, altitude_evasion = 10.0, inclination_change = 0.0):
+
+    manoeuvres = []
+    if df_collisions.empty:
+        print("No collisions predicted, maintain orbit")
+        return []
+
+    r1 = orbital_radius(satellite)
+    r2 = r1 + altitude_evasion * 1000 #converting distances to m
+
+    for row in df_collisions:
+        result = orbit_transfer(r1, r2, inclination_change)
+
+        manoeuvres.append(result)
 
 # ==========================================
 # EXEMPLE D'UTILISATION (FLUX DE TRAVAIL FINAL)
