@@ -69,51 +69,87 @@ def calculer_trajectoire_orbite(satellite, temps_debut, duree_minutes=120):
 
 def detecter_collisions(satellite_cible, debris, temps_debut, temps_fin, seuil_km=10.0):
     """
-    Simule la trajectoire de la cible et des débris pour détecter si une distance
-    descend sous le seuil critique (ex: 10 km).
+    Fonction de détection de collision avancée (Coarse to Fine).
+    Capable de détecter de multiples rapprochements sur une longue période.
     """
     ts = load.timescale()
+    
+    # 1. Création de la Grille Large (pas de 1 minute)
     delta_total_minutes = int((temps_fin.utc_datetime() - temps_debut.utc_datetime()).total_seconds() / 60)
-    
-    # --- ANCIEN CODE SUPPRIME ---
-    # liste_temps = ts.utc(temps_debut.utc_datetime() + timedelta(minutes=m) for m in range(delta_total_minutes))
-    
-    # --- NOUVEAU CODE ---
     t0 = temps_debut.utc_datetime()
     liste_dt = [t0 + timedelta(minutes=m) for m in range(delta_total_minutes)]
-    liste_temps = ts.from_datetimes(liste_dt)
-    # --------------------
+    t_coarse = ts.from_datetimes(liste_dt)
     
-    positions_cible = satellite_cible.at(liste_temps).position.km
+    # Calcul des positions de la cible une seule fois pour la grille large
+    pos_cible_coarse = satellite_cible.at(t_coarse).position.km
     
     alertes = []
+    seuil_coarse_km = 1000.0 # Rayon de recherche initial large
     
     for autre in debris:
         try:
-            positions_autre = autre.at(liste_temps).position.km
-            # Calcul de la distance euclidienne à chaque instant
-            distances = np.linalg.norm(positions_cible - positions_autre, axis=0)
-            distance_min = np.min(distances)
+            # Positions du débris sur la grille large
+            pos_autre_coarse = autre.at(t_coarse).position.km
+            distances = np.linalg.norm(pos_cible_coarse - pos_autre_coarse, axis=0)
             
-            if distance_min < seuil_km:
-                index_min = np.argmin(distances)
-                
-                # --- ANCIEN CODE SUPPRIME ---
-                # moment_collision = liste_temps[index_min].utc_strftime('%Y-%m-%d %H:%M:%S UTC')
-                
-                # --- NOUVEAU CODE ---
-                moment_collision = liste_dt[index_min].strftime('%Y-%m-%d %H:%M:%S UTC')
-                # --------------------
-                
-                alertes.append({
-                    'Debris': autre.name,
-                    'Heure critique': moment_collision,
-                    'Distance Min (km)': distance_min
-                })
-        except Exception:
-            pass
+            # 2. Recherche de TOUS les minima locaux (les moments de rapprochement)
+            # On cherche les points où la distance est plus petite qu'avant ET plus petite qu'après
+            creux = (distances[1:-1] < distances[:-2]) & (distances[1:-1] < distances[2:])
+            indices_minima = np.where(creux)[0] + 1 # +1 pour compenser le décalage du slice
             
-    return pd.DataFrame(alertes)
+            # On filtre pour ne garder que les creux sous le seuil d'approche large
+            approches_valides = [i for i in indices_minima if distances[i] < seuil_coarse_km]
+            
+            # 3. Zoom Fin sur chaque approche valide
+            for i in approches_valides:
+                # On récupère le temps exact du rapprochement en format Julian Date (ultra rapide)
+                jd_centre = t_coarse[i].tt
+                
+                # Grille fine : +/- 60 secondes, pas de 0.1 seconde
+                secondes_fines = np.arange(-60, 60, 0.1)
+                jours_fins = secondes_fines / 86400.0 # Conversion secondes -> jours
+                t_fine = ts.tt_jd(jd_centre + jours_fins)
+                
+                # Propagation chirurgicale
+                pos_c_fine = satellite_cible.at(t_fine).position.km
+                pos_a_fine = autre.at(t_fine).position.km
+                
+                # Distance exacte
+                dist_fines = np.linalg.norm(pos_c_fine - pos_a_fine, axis=0)
+                distance_tca = np.min(dist_fines) # TCA = Time of Closest Approach
+                
+                # Si la distance exacte franchit ton vrai seuil de collision
+                if distance_tca < seuil_km:
+                    index_tca = np.argmin(dist_fines)
+                    moment_exact = t_fine[index_tca].utc_datetime().strftime('%Y-%m-%d %H:%M:%S.%f UTC')[:-3]
+                    
+                    x_exact = float(pos_c_fine[0][index_tca])
+                    y_exact = float(pos_c_fine[1][index_tca])
+                    z_exact = float(pos_c_fine[2][index_tca])
+                    # On stocke l'alerte
+                    alertes.append({
+                        'Cible': satellite_cible.name,
+                        'Débris': autre.name,
+                        'Heure d\'impact': moment_exact,
+                        'Distance Min (km)': round(distance_tca, 3),
+                        'X': x_exact,
+                        'Y': y_exact,
+                        'Z': z_exact
+                    })
+                    
+        except Exception as e:
+            # Affiche l'erreur au lieu de l'étouffer silencieusement
+            print(f"⚠️ Erreur lors de la propagation du débris '{autre.name}' : {e}")
+            continue
+
+    # Retourne un DataFrame prêt à l'emploi (facile à trier chronologiquement)
+    df_resultats = pd.DataFrame(alertes)
+    
+    if not df_resultats.empty:
+        # Trie par heure d'impact pour avoir un bel ordre chronologique
+        df_resultats = df_resultats.sort_values(by='Heure d\'impact').reset_index(drop=True)
+        
+    return df_resultats
 
 if __name__ == "__main__":
     debris = charger_donnees_tle('donnees/cosmos-2251-debris.txt')

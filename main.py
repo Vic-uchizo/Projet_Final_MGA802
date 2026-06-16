@@ -6,7 +6,6 @@ Permet de gérer l'exécution des différents modules avec un menu interactif.
 import os
 import sys
 import subprocess
-from orbit import obtenir_positions_instantanees, charger_donnees_tle
 from donnees.telechargement import obtenir_fichier_tle, GROUPES
 import pandas as pd
 from skyfield.api import load
