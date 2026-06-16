@@ -76,6 +76,7 @@ def generer_graphique_satellites(satellites, orbite_df=None, collisions_df=None,
     # Positionnement de la légende pour éviter de cacher le centre
     ax.legend(loc='upper right')
     
+    st.pyplot(fig)
     return fig
 
 def main():
