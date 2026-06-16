@@ -76,7 +76,6 @@ def generer_graphique_satellites(satellites, orbite_df=None, collisions_df=None,
     # Positionnement de la légende pour éviter de cacher le centre
     ax.legend(loc='upper right')
     
-    st.pyplot(fig)
     return fig
 
 def main():
@@ -158,7 +157,7 @@ def main():
                 
                 # Détection des collisions
                 temps_fin = ts.from_datetime(temps_debut.utc_datetime() + timedelta(days=1))
-                df_col = detecter_collisions(cible, debris_tle, temps_debut, temps_fin, seuil_km=1000.0)
+                df_col = detecter_collisions(cible, debris_tle, temps_debut, temps_fin, seuil_km=10.0)
                 
                 # Génération de la carte 3D mise à jour (fond gris, orbite verte, collisions rouges)
                 fig = generer_graphique_satellites(
