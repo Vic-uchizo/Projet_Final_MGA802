@@ -10,9 +10,13 @@ def charger_donnees_tle(chemin_fichier):
     """
     print(f"Chargement des TLE depuis {chemin_fichier}...")
     # skyfield possède une fonction optimisée pour lire directement les fichiers TLE
-    satellites = load.tle_file(chemin_fichier)
-    print(f"{len(satellites)} satellites chargés avec succès.")
-    return satellites
+    try:
+        satellites = load.tle_file(chemin_fichier)
+        print(f"{len(satellites)} satellites chargés avec succès.")
+        return satellites
+    except Exception as e:
+        print(f"Erreur lors du chargement : {e}")
+        return []
 
 def obtenir_positions_instantanees(satellites, temps_donne):
     """
@@ -36,191 +40,117 @@ def obtenir_positions_instantanees(satellites, temps_donne):
             
     return pd.DataFrame(resultats)
 
-def calculer_trajectoire_orbite(satellite, temps_debut, duree_minutes=100, nb_points=100):
+def calculer_trajectoire_orbite(satellite, temps_debut, duree_minutes=120):
     """
-    Nouvelle fonction pour Streamlit :
-    Génère un DataFrame des coordonnées 3D (X, Y, Z) de l'orbite d'un satellite.
-    L'orbite basse typique (ex: Starlink) dure environ 90-100 minutes.
+    Calcule une série de points (X, Y, Z) représentant l'orbite d'un seul satellite
+    sur une période donnée (par défaut 90 min, environ une orbite LEO complète).
     """
     ts = load.timescale()
-    temps_fin = ts.utc(temps_debut.utc_datetime() + timedelta(minutes=duree_minutes))
-    t_array = ts.linspace(temps_debut, temps_fin, nb_points)
     
-    # Récupère les positions X, Y, Z en km (Référentiel géocentrique)
-    positions = satellite.at(t_array).position.km
+    # --- ANCIEN CODE SUPPRIME ---
+    # # On crée un tableau de temps (1 point par minute)
+    # liste_temps = ts.utc(temps_debut.utc_datetime() + timedelta(minutes=m) for m in range(duree_minutes))
     
-    df_orbite = pd.DataFrame({
-        'Temps': t_array.utc_datetime(),
+    # --- NOUVEAU CODE ---
+    t0 = temps_debut.utc_datetime()
+    liste_dt = [t0 + timedelta(minutes=m) for m in range(duree_minutes)]
+    liste_temps = ts.from_datetimes(liste_dt)
+    # --------------------
+    
+    positions = satellite.at(liste_temps).position.km
+    
+    # positions est une matrice 3xN, on la transpose pour l'avoir en Nx3 pour le DataFrame
+    df = pd.DataFrame({
         'X': positions[0],
         'Y': positions[1],
         'Z': positions[2]
     })
-    return df_orbite
+    return df
 
-def detecter_collisions(satellite_cible, autres_satellites, temps_debut, temps_fin, seuil_alerte_km=10.0):
+def detecter_collisions(satellite_cible, debris, temps_debut, temps_fin, seuil_km=10.0):
     """
-    Détecte les rapprochements dangereux entre un satellite cible et une liste d'autres satellites.
-    
-    Paramètres:
-    - satellite_cible: Objet EarthSatellite cible.
-    - autres_satellites: Liste d'objets EarthSatellite à comparer.
-    - temps_debut, temps_fin: Objets de temps Skyfield (ts.utc(...)).
-    - seuil_alerte_km: Distance en dessous de laquelle on considère qu'il y a risque de collision.
-    
-    Retourne:
-    - Un DataFrame Pandas contenant les informations des collisions potentielles.
+    Fonction de détection de collision avancée (Coarse to Fine).
+    Capable de détecter de multiples rapprochements sur une longue période.
     """
     ts = load.timescale()
     
-    # ---------------------------------------------------------
-    # ÉTAPE 1 : Passe grossière (1 point par minute)
-    # ---------------------------------------------------------
-    # Calcul du nombre de minutes entre le début et la fin
-    duree_minutes = int((temps_fin - temps_debut) * 24 * 60)
+    # 1. Création de la Grille Large (pas de 1 minute)
+    delta_total_minutes = int((temps_fin.utc_datetime() - temps_debut.utc_datetime()).total_seconds() / 60)
+    t0 = temps_debut.utc_datetime()
+    liste_dt = [t0 + timedelta(minutes=m) for m in range(delta_total_minutes)]
+    t_coarse = ts.from_datetimes(liste_dt)
     
-    if duree_minutes <= 0:
-        return pd.DataFrame() # Retourne un dataframe vide si la durée est invalide
-
-    # Création du tableau de temps grossier
-    t_grossier = ts.linspace(temps_debut, temps_fin, duree_minutes)
+    # Calcul des positions de la cible une seule fois pour la grille large
+    pos_cible_coarse = satellite_cible.at(t_coarse).position.km
     
-    # Calcul des positions de la cible pour toute la période (en kilomètres)
-    # La forme de l'array sera (3, nombre_de_minutes) pour X, Y, Z
-    pos_cible_grossiere = satellite_cible.at(t_grossier).position.km
+    alertes = []
+    seuil_coarse_km = 1000.0 # Rayon de recherche initial large
     
-    resultats = []
-    
-    print(f"Analyse des trajectoires pour {satellite_cible.name}...")
-    
-    for sat in autres_satellites:
-        # On ne compare pas le satellite avec lui-même
-        if sat.model.satnum == satellite_cible.model.satnum:
+    for autre in debris:
+        try:
+            # Positions du débris sur la grille large
+            pos_autre_coarse = autre.at(t_coarse).position.km
+            distances = np.linalg.norm(pos_cible_coarse - pos_autre_coarse, axis=0)
+            
+            # 2. Recherche de TOUS les minima locaux (les moments de rapprochement)
+            # On cherche les points où la distance est plus petite qu'avant ET plus petite qu'après
+            creux = (distances[1:-1] < distances[:-2]) & (distances[1:-1] < distances[2:])
+            indices_minima = np.where(creux)[0] + 1 # +1 pour compenser le décalage du slice
+            
+            # On filtre pour ne garder que les creux sous le seuil d'approche large
+            approches_valides = [i for i in indices_minima if distances[i] < seuil_coarse_km]
+            
+            # 3. Zoom Fin sur chaque approche valide
+            for i in approches_valides:
+                # On récupère le temps exact du rapprochement en format Julian Date (ultra rapide)
+                jd_centre = t_coarse[i].tt
+                
+                # Grille fine : +/- 60 secondes, pas de 0.1 seconde
+                secondes_fines = np.arange(-60, 60, 0.1)
+                jours_fins = secondes_fines / 86400.0 # Conversion secondes -> jours
+                t_fine = ts.tt_jd(jd_centre + jours_fins)
+                
+                # Propagation chirurgicale
+                pos_c_fine = satellite_cible.at(t_fine).position.km
+                pos_a_fine = autre.at(t_fine).position.km
+                
+                # Distance exacte
+                dist_fines = np.linalg.norm(pos_c_fine - pos_a_fine, axis=0)
+                distance_tca = np.min(dist_fines) # TCA = Time of Closest Approach
+                
+                # Si la distance exacte franchit ton vrai seuil de collision
+                if distance_tca < seuil_km:
+                    index_tca = np.argmin(dist_fines)
+                    moment_exact = t_fine[index_tca].utc_datetime().strftime('%Y-%m-%d %H:%M:%S.%f UTC')[:-3]
+                    
+                    x_exact = float(pos_c_fine[0][index_tca])
+                    y_exact = float(pos_c_fine[1][index_tca])
+                    z_exact = float(pos_c_fine[2][index_tca])
+                    # On stocke l'alerte
+                    alertes.append({
+                        'Cible': satellite_cible.name,
+                        'Débris': autre.name,
+                        'Heure d\'impact': moment_exact,
+                        'Distance Min (km)': round(distance_tca, 3),
+                        'X': x_exact,
+                        'Y': y_exact,
+                        'Z': z_exact
+                    })
+                    
+        except Exception as e:
+            # Affiche l'erreur au lieu de l'étouffer silencieusement
+            print(f"⚠️ Erreur lors de la propagation du débris '{autre.name}' : {e}")
             continue
-            
-        # Calcul de la position de l'autre satellite
-        pos_sat_grossiere = sat.at(t_grossier).position.km
-        
-        # Calcul de la distance euclidienne à chaque minute
-        distances_grossieres = np.linalg.norm(pos_cible_grossiere - pos_sat_grossiere, axis=0)
-        
-        # On cherche le moment où ils sont le plus proches pendant cette période
-        index_min_grossier = np.argmin(distances_grossieres)
-        distance_min_grossiere = distances_grossieres[index_min_grossier]
-        
-        # Si la distance grossière est sous les 200 km, on lance la passe fine
-        # (Car en 1 minute, un objet bouge d'environ 450km, donc 200km est une bonne marge d'erreur)
-        if distance_min_grossiere < 200.0:
-            
-            # ---------------------------------------------------------
-            # ÉTAPE 2 : Passe fine (1 point par seconde sur une fenêtre de 4 minutes)
-            # ---------------------------------------------------------
-            # On recadre 2 minutes avant et 2 minutes après le point le plus proche
-            index_debut_fin = max(0, index_min_grossier - 2)
-            index_fin_fin = min(len(t_grossier) - 1, index_min_grossier + 2)
-            
-            t_fin_debut = t_grossier[index_debut_fin]
-            t_fin_fin = t_grossier[index_fin_fin]
-            
-            # 240 secondes dans 4 minutes
-            t_fin = ts.linspace(t_fin_debut, t_fin_fin, 240)
-            
-            # Recalcul précis
-            pos_cible_fine = satellite_cible.at(t_fin).position.km
-            pos_sat_fine = sat.at(t_fin).position.km
-            
-            distances_fines = np.linalg.norm(pos_cible_fine - pos_sat_fine, axis=0)
-            
-            index_min_fin = np.argmin(distances_fines)
-            distance_absolue = distances_fines[index_min_fin]
-            
-            # Si la distance absolue est sous notre seuil critique (ex: 10km)
-            if distance_absolue <= seuil_alerte_km:
-                temps_approche = t_fin[index_min_fin].utc_datetime()
-                
-                # Extraction des coordonnées 3D exactes (X, Y, Z) au moment du contact
-                pos_cible_contact = pos_cible_fine[:, index_min_fin]
-                pos_sat_contact = pos_sat_fine[:, index_min_fin]
-                
-                # Point de contact estimé (le milieu géométrique entre les deux satellites)
-                contact_x = (pos_cible_contact[0] + pos_sat_contact[0]) / 2.0
-                contact_y = (pos_cible_contact[1] + pos_sat_contact[1]) / 2.0
-                contact_z = (pos_cible_contact[2] + pos_sat_contact[2]) / 2.0
-                
-                resultats.append({
-                    "Satellite Cible": satellite_cible.name,
-                    "Satellite Secondaire": sat.name,
-                    "ID Cible": satellite_cible.model.satnum,
-                    "ID Secondaire": sat.model.satnum,
-                    "Date & Heure (UTC)": temps_approche.strftime('%Y-%m-%d %H:%M:%S'),
-                    "Distance Minimale (km)": round(distance_absolue, 3),
-                    # Données spatiales prêtes pour l'affichage 3D dans Streamlit
-                    "Contact X": contact_x,
-                    "Contact Y": contact_y,
-                    "Contact Z": contact_z
-                })
 
-    # Conversion des résultats en DataFrame pour une utilisation facile dans Streamlit
-    df_resultats = pd.DataFrame(resultats)
+    # Retourne un DataFrame prêt à l'emploi (facile à trier chronologiquement)
+    df_resultats = pd.DataFrame(alertes)
+    
+    if not df_resultats.empty:
+        # Trie par heure d'impact pour avoir un bel ordre chronologique
+        df_resultats = df_resultats.sort_values(by='Heure d\'impact').reset_index(drop=True)
+        
     return df_resultats
 
-# ==========================================
-# EXEMPLE D'UTILISATION (FLUX DE TRAVAIL FINAL)
-# ==========================================
-if __name__ == '__main__':
-    import os
-    
-    # --- SIMULATION DES DEUX FICHIERS ---
-    fichier_starlink = "starlink.txt"
-    fichier_debris = "debris.txt"
-    
-    if not os.path.exists(fichier_starlink):
-        with open(fichier_starlink, "w") as f:
-            f.write("""STARLINK-1007           
-1 44713U 19074A   21289.46241319  .00000494  00000-0  34484-4 0  9997
-2 44713  53.0543 323.7088 0001407  92.5186 267.5956 15.06399086103632""")
-            
-    if not os.path.exists(fichier_debris):
-        with open(fichier_debris, "w") as f:
-            f.write("""DEBRIS 1                   
-1 36086U 09060A   21289.46241319  .00008067  00000+0  15344-3 0  9991
-2 36086  53.0543 323.7088 0004931  92.6343 267.4689 15.06399086103632""")
-
-    # 1. Chargement des données
-    print("\n--- ETAPE 1 : Chargement ---")
-    liste_starlink = charger_donnees_tle(fichier_starlink)
-    liste_debris = charger_donnees_tle(fichier_debris)
-    
-    # 2. Carte Streamlit Initiale (Le nuage de points)
-    print("\n--- ETAPE 2 : Positions pour la map globale ---")
-    ts = load.timescale()
-    maintenant = ts.now() # L'instant T
-    
-    df_map_globale = obtenir_positions_instantanees(liste_starlink, maintenant)
-    print("Données envoyées à Streamlit pour la carte :")
-    print(df_map_globale.head())
-    
-    # 3. L'utilisateur sélectionne un satellite sur Streamlit
-    print("\n--- ETAPE 3 : Analyse de l'orbite d'un satellite sélectionné ---")
-    cible_selectionnee = liste_starlink[0] # Ex: Il clique sur le premier
-    
-    # On calcule sa ligne de trajectoire (pour dessiner l'orbite)
-    df_orbite = calculer_trajectoire_orbite(cible_selectionnee, maintenant)
-    print(f"Orbite calculée pour {cible_selectionnee.name} ({len(df_orbite)} points 3D).")
-    
-    # 4. Calcul des collisions contre les débris
-    print("\n--- ETAPE 4 : Détection de collisions avec les débris ---")
-    demain = ts.utc(maintenant.utc_datetime() + timedelta(days=1))
-    
-    df_collisions = detecter_collisions(
-        satellite_cible=cible_selectionnee,
-        autres_satellites=liste_debris, # <--- ICI ON MET LE FICHIER DES DEBRIS
-        temps_debut=maintenant,
-        temps_fin=demain,
-        seuil_alerte_km=200.0 # Seuil très grand pour forcer un résultat de test
-    )
-    
-    print("\n=== POINTS DE CONTACT A AFFICHER SUR STREAMLIT ===")
-    if not df_collisions.empty:
-        print(df_collisions.to_string(index=False))
-    else:
-        print("Aucune collision.")
+if __name__ == "__main__":
+    debris = charger_donnees_tle('donnees/cosmos-2251-debris.txt')
+    print([d.name for d in debris[-5:]]) # Affiche les 5 derniers noms lus
