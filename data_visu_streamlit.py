@@ -143,7 +143,7 @@ def main():
         # 2. CAS SATELLITE CIBLÉ : On calcule l'orbite et les collisions
         with st.spinner(f"Analyse orbitale de {sat_choisi} en cours..."):
             satellites_tle = charger_donnees_tle(chemin_tle)
-            debris_tle = charger_donnees_tle(chemin_debris)
+            debris_tle = charger_donnees_tle(chemin_debris)[:50]
             
             # Récupération de l'objet satellite exact choisi par l'utilisateur
             cible = next((s for s in satellites_tle if s.name == sat_choisi), None)
@@ -157,7 +157,7 @@ def main():
                 
                 # Détection des collisions
                 temps_fin = ts.from_datetime(temps_debut.utc_datetime() + timedelta(days=1))
-                df_col = detecter_collisions(cible, debris_tle, temps_debut, temps_fin, seuil_km=10.0)
+                df_col = detecter_collisions(cible, debris_tle, temps_debut, temps_fin, seuil_km=300.0)
                 
                 # Génération de la carte 3D mise à jour (fond gris, orbite verte, collisions rouges)
                 fig = generer_graphique_satellites(
