@@ -3,6 +3,24 @@ import pandas as pd
 from skyfield.api import load
 from datetime import timedelta
 
+# Constante gravitationnelle géocentrique (km^3 / s^2)
+MU_TERRE = 398600.4418
+
+def perigee_apogee_km(satellite):
+    """
+    Calcule le rayon géocentrique au périgée et à l'apogée d'un satellite
+    à partir des éléments de son TLE (demi-grand axe + excentricité).
+
+    Retourne (r_perigee_km, r_apogee_km), des distances depuis le CENTRE
+    de la Terre (cohérent avec satellite.at(t).position.km).
+    """
+    # no_kozai est le moyen mouvement en radians/minute -> on convertit en rad/s
+    n = satellite.model.no_kozai / 60.0
+    e = satellite.model.ecco
+    # 3e loi de Kepler : a = (mu / n^2)^(1/3)
+    a = (MU_TERRE / (n * n)) ** (1.0 / 3.0)
+    return a * (1.0 - e), a * (1.0 + e)
+
 def charger_donnees_tle(chemin_fichier):
     """
     Charge un fichier TLE en utilisant Skyfield.
@@ -82,12 +100,29 @@ def detecter_collisions(satellite_cible, debris, temps_debut, temps_fin, seuil_k
     
     # Calcul des positions de la cible une seule fois pour la grille large
     pos_cible_coarse = satellite_cible.at(t_coarse).position.km
-    
+
     alertes = []
     seuil_coarse_km = 1000.0 # Rayon de recherche initial large
-    
+
+    # --- PRÉ-FILTRE APOGÉE / PÉRIGÉE -------------------------------------
+    # Les deux orbites ne peuvent se rapprocher à moins de "seuil_km" que si
+    # leurs bandes d'altitude (périgée -> apogée) se chevauchent à ce seuil près.
+    # La distance 3D est toujours >= |r_cible - r_debris|, donc si l'écart
+    # radial minimal dépasse le seuil, AUCUNE collision n'est possible :
+    # on saute le débris SANS le propager (gain de calcul).
+    rp_cible, ra_cible = perigee_apogee_km(satellite_cible)
+    nb_filtres = 0  # compteur, utile pour le diagnostic / l'oral
+    # --------------------------------------------------------------------
+
     for autre in debris:
         try:
+            # Pré-filtre : écart radial minimal entre les deux bandes orbitales
+            rp_autre, ra_autre = perigee_apogee_km(autre)
+            ecart_radial = max(rp_autre - ra_cible, rp_cible - ra_autre)
+            if ecart_radial > seuil_km:
+                nb_filtres += 1
+                continue  # orbites trop éloignées en altitude : on ne propage pas
+
             # Positions du débris sur la grille large
             pos_autre_coarse = autre.at(t_coarse).position.km
             distances = np.linalg.norm(pos_cible_coarse - pos_autre_coarse, axis=0)
@@ -141,6 +176,10 @@ def detecter_collisions(satellite_cible, debris, temps_debut, temps_fin, seuil_k
             # Affiche l'erreur au lieu de l'étouffer silencieusement
             print(f"⚠️ Erreur lors de la propagation du débris '{autre.name}' : {e}")
             continue
+
+    # Récap du pré-filtre (combien de débris écartés sans propagation)
+    print(f"Pré-filtre apogée/périgée : {nb_filtres}/{len(debris)} débris écartés "
+          f"(orbites trop éloignées en altitude, seuil = {seuil_km} km).")
 
     # Retourne un DataFrame prêt à l'emploi (facile à trier chronologiquement)
     df_resultats = pd.DataFrame(alertes)
