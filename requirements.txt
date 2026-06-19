@@ -9,6 +9,7 @@ kiwisolver==1.5.0
 matplotlib==3.10.9
 numpy==2.4.6
 packaging==26.2
+pandas==3.0.3
 pillow==12.2.0
 pyparsing==3.3.2
 python-dateutil==2.9.0.post0
@@ -16,4 +17,5 @@ requests==2.34.2
 sgp4==2.25
 six==1.17.0
 skyfield==1.54
+streamlit==1.58.0
 urllib3==2.7.0

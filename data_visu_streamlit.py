@@ -78,11 +78,55 @@ def generer_graphique_satellites(satellites, orbite_df=None, collisions_df=None,
     
     return fig
 
+# ==========================================
+# FONCTIONS MISES EN CACHE (ÉTAPE 3)
+# ==========================================
+# Streamlit ré-exécute tout le script à chaque interaction. Ces décorateurs
+# évitent de refaire les calculs lourds quand les entrées n'ont pas changé.
+
+@st.cache_resource(show_spinner=False)
+def charger_catalogue(chemin_fichier):
+    """
+    Charge une liste de satellites UNE seule fois et la garde en mémoire.
+    @st.cache_resource est adapté aux objets "vivants" (EarthSatellite) qui ne
+    se sérialisent pas bien : on ne relit donc plus le fichier TLE à chaque clic.
+    """
+    return charger_donnees_tle(chemin_fichier)
+
+
+@st.cache_data(show_spinner=False)
+def analyser_satellite(nom_cible, chemin_tle, chemin_debris, n_debris, seuil_km, duree_jours):
+    """
+    Calcule l'orbite + les collisions d'un satellite, et MET LE RÉSULTAT EN CACHE.
+    Si on re-sélectionne le même satellite avec les mêmes paramètres, Streamlit
+    renvoie le résultat mémorisé instantanément (aucun recalcul).
+
+    NB : tous les arguments sont "hachables" (texte/nombres) ; c'est ce qui permet
+    le cache. On reconstruit les objets satellites à l'intérieur via le cache_resource.
+    """
+    satellites_tle = charger_catalogue(chemin_tle)
+    debris_tle = charger_catalogue(chemin_debris)[:n_debris]
+
+    cible = next((s for s in satellites_tle if s.name == nom_cible), None)
+    if cible is None:
+        return None, None, []
+
+    ts = load.timescale()
+    temps_debut = cible.epoch
+    # Orbite (trajectoire sur 120 min) + détection des collisions sur la fenêtre
+    df_orbite = calculer_trajectoire_orbite(cible, temps_debut, duree_minutes=120)
+    temps_fin = ts.from_datetime(temps_debut.utc_datetime() + timedelta(days=duree_jours))
+    df_col = detecter_collisions(cible, debris_tle, temps_debut, temps_fin, seuil_km=seuil_km)
+
+    noms_debris = [d.name.strip() for d in debris_tle]
+    return df_orbite, df_col, noms_debris
+
+
 def main():
     # ==========================================
     # INTERFACE STREAMLIT
     # ==========================================
-    st.title("🛰️ Visualisation des Satellites autour de la Terre")
+    st.title(" Visualisation des Satellites autour de la Terre")
 
     chemin_csv = os.path.join('donnees', 'positions_instantanees.csv')
     chemin_csv_d = os.path.join('donnees', 'positions_instantanees_debris.csv')
@@ -90,7 +134,7 @@ def main():
     chemin_debris = os.path.join('donnees', 'cosmos-2251-debris.txt')
     
     if not os.path.exists(chemin_tle) or not os.path.exists(chemin_debris):
-        st.error("⚠️ Fichiers bruts TLE introuvables. Veuillez exécuter l'option 1 dans main.py d'abord pour les télécharger.")
+        st.error(" Fichiers bruts TLE introuvables. Veuillez exécuter l'option 1 dans main.py d'abord pour les télécharger.")
         return
         
     @st.cache_data
@@ -141,49 +185,39 @@ def main():
 
     else:
         # 2. CAS SATELLITE CIBLÉ : On calcule l'orbite et les collisions
+        # L'appel est mis en cache : ~2s au 1er calcul, INSTANTANÉ ensuite
+        # (re-sélection du même satellite, ouverture d'un expander, etc.)
         with st.spinner(f"Analyse orbitale de {sat_choisi} en cours..."):
-            satellites_tle = charger_donnees_tle(chemin_tle)
-            debris_tle = charger_donnees_tle(chemin_debris)
-            
-            # Récupération de l'objet satellite exact choisi par l'utilisateur
-            cible = next((s for s in satellites_tle if s.name == sat_choisi), None)
-            
-            if cible:
-                ts = load.timescale()
-                temps_debut = cible.epoch
-                
-                # Calcul de son path (orbite sur 120 min)
-                df_orbite = calculer_trajectoire_orbite(cible, temps_debut, duree_minutes=120)
-                
-                # Détection des collisions
-                temps_fin = ts.from_datetime(temps_debut.utc_datetime() + timedelta(days=1))
-                df_col = detecter_collisions(cible, debris_tle, temps_debut, temps_fin, seuil_km=10.0)
-                
-                # Génération de la carte 3D mise à jour (fond gris, orbite verte, collisions rouges)
-                fig = generer_graphique_satellites(
-                    echantillon_fond, 
-                    orbite_df=df_orbite, 
-                    collisions_df=df_col if not df_col.empty else None, 
-                    cible=sat_choisi
-                )
-                st.pyplot(fig)
-                
-                # --- AFFICHAGE DES RAPPORTS SOUS LA CARTE ---
-                st.write("#### 🚨 Rapport de Collisions (sur 24h)")
-                if df_col.empty:
-                    st.success(f"✅ Aucune collision critique détectée pour {sat_choisi} dans les prochaines 24h.")
-                else:
-                    st.error(f"⚠️ DANGER : Rapprochements critiques détectés pour {sat_choisi} !")
-                    st.dataframe(df_col)
-                    
-                # Optionnel : garder le module de diagnostic caché
-                with st.expander("🔍 Diagnostics Débris"):
-                    noms_debris = [d.name.strip() for d in debris_tle]
-                    st.info(f"{len(debris_tle)} débris analysés.")
-                    st.dataframe(pd.DataFrame({'Nom du débris': noms_debris}))
+            df_orbite, df_col, noms_debris = analyser_satellite(
+                sat_choisi, chemin_tle, chemin_debris,
+                n_debris=50, seuil_km=300.0, duree_jours=1
+            )
 
+        if df_orbite is not None:
+            # Génération de la carte 3D mise à jour (fond gris, orbite verte, collisions rouges)
+            fig = generer_graphique_satellites(
+                echantillon_fond,
+                orbite_df=df_orbite,
+                collisions_df=df_col if not df_col.empty else None,
+                cible=sat_choisi
+            )
+            st.pyplot(fig)
+
+            # --- AFFICHAGE DES RAPPORTS SOUS LA CARTE ---
+            st.write("####  Rapport de Collisions (sur 24h)")
+            if df_col.empty:
+                st.success(f" Aucune collision critique détectée pour {sat_choisi} dans les prochaines 24h.")
             else:
-                st.error("Erreur : Impossible de retrouver les paramètres orbitaux du satellite.")
+                st.error(f" DANGER : Rapprochements critiques détectés pour {sat_choisi} !")
+                st.dataframe(df_col)
+
+            # Optionnel : garder le module de diagnostic caché
+            with st.expander("🔍 Diagnostics Débris"):
+                st.info(f"{len(noms_debris)} débris analysés.")
+                st.dataframe(pd.DataFrame({'Nom du débris': noms_debris}))
+
+        else:
+            st.error("Erreur : Impossible de retrouver les paramètres orbitaux du satellite.")
 
 if __name__ == "__main__":
     main()
