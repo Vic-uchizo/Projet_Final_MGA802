@@ -68,7 +68,7 @@ def orbital_radius(satellite):
     return demi_major_axis
 
 
-def evasive_maneuver(satellite, df_collisions, altitude_evasion_km=10.0,
+def evasive_maneuver(cible, df_collisions, altitude_evasion_km=10.0,
                      inclination_change=0.0, eleve_orbit=True):
     """
     Calcule la manœuvre d'évitement (delta-v + temps de transfert) nécessaire pour déplacer
@@ -79,8 +79,11 @@ def evasive_maneuver(satellite, df_collisions, altitude_evasion_km=10.0,
     if df_collisions.empty:
         print("Aucune collision prévue, maintien de l'orbite")
         return []
-
-    r1 = orbital_radius(satellite)
+    
+    satellites_starlink = charger_donnees_tle('donnees/starlink.txt')
+    
+    cible = next((s for s in satellites_starlink if s.name == cible), None)
+    r1 = orbital_radius(cible)
 
     delta_r = altitude_evasion_km * 1000.0  # km -> m
     r2 = r1 + delta_r if eleve_orbit else r1 - delta_r

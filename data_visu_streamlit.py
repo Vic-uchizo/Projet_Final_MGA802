@@ -7,6 +7,7 @@ import os # AJOUT
 # from orbit import charger_donnees_tle, calculer_trajectoire_orbite, detecter_collisions # AJOUT
 # --- NOUVEAU CODE ---
 from orbit import charger_donnees_tle, calculer_trajectoire_orbite, detecter_collisions, obtenir_positions_instantanees # AJOUT
+from maneuver import evasive_maneuver
 # --------------------
 from skyfield.api import load # AJOUT
 from datetime import timedelta # AJOUT
@@ -210,6 +211,21 @@ def main():
             else:
                 st.error(f" DANGER : Rapprochements critiques détectés pour {sat_choisi} !")
                 st.dataframe(df_col)
+                # 1. Calcul de la manœuvre d'évitement
+                evasive = evasive_maneuver(sat_choisi, df_col, altitude_evasion_km=10.0, inclination_change=0.0, eleve_orbit=True)
+
+                # 2. Affichage propre dans Streamlit
+                if evasive: # Si la liste n'est pas vide
+                    st.write("#### Plan de Manœuvre d'Évitement")
+                    st.warning("Recommandation de poussée pour esquiver les impacts :")
+                    
+                    # Conversion de la liste de dicts en DataFrame Pandas
+                    df_manoeuvres = pd.DataFrame(evasive)
+                    st.dataframe(df_manoeuvres, use_container_width=True)
+                    
+                else:
+                    st.info("Aucune manœuvre d'évitement requise.")
+
 
             # Optionnel : garder le module de diagnostic caché
             with st.expander("🔍 Diagnostics Débris"):
