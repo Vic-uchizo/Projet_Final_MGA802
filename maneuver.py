@@ -1,5 +1,7 @@
 import math
 from orbit import charger_donnees_tle, detecter_collisions
+from skyfield.api import load
+import datetime
 
 # Gravitational constant
 GM = 3.986004418e14
@@ -40,10 +42,7 @@ def orbit_transfer(r1, r2, inclination_change=0.0):
 
     # Exit transfer ellipse at apogee
     if inclination_change != 0.0:
-        dv2 = math.sqrt(
-            v2 ** 2 + v_ag ** 2
-            - 2 * v2 * v_ag * math.cos(math.radians(inclination_change))
-        )
+        dv2 = inclination_change(inclination_change,v_ag)
     else:
         dv2 = abs(v2 - v_ag)
 
@@ -59,13 +58,10 @@ def orbit_transfer(r1, r2, inclination_change=0.0):
 
 
 def orbital_radius(satellite):
-    """
-    Estimates the semi-major axis (~orbital radius for a near-circular orbit)
-    from the satellite's SGP4 mean motion. Returns a value in meters.
-    """
-    rev_per_day = satellite.model.no_kozai / (2 * math.pi) * 1440
+
+    rev_per_day = satellite.model.no_kozai / (2* math.pi) * 1440
     rad_per_sec = (rev_per_day * 2 * math.pi) / 86400
-    semi_major_axis = (GM / rad_per_sec ** 2) ** (1 / 3)
+    semi_major_axis = (GM / rad_per_sec**2) ** (1/3)
     return semi_major_axis
 
 
@@ -103,11 +99,9 @@ def evasive_maneuver(satellite, df_collisions, altitude_evasion_km=10.0,
 
 
 if __name__ == "__main__":
-    from skyfield.api import load
-    import datetime
+
 
     # Imports the loading and detection functions from collision_detection.py
-    # (must be in the same folder, or on your PYTHONPATH)
 
     ts = load.timescale()
 
@@ -126,14 +120,14 @@ if __name__ == "__main__":
     df_collisions = detecter_collisions(satellite_cible, debris, t_debut, t_fin, seuil_km=5.0)
 
     if df_collisions.empty:
-        print("Aucune collision détectée sur les 24 prochaines heures.")
+        print("No collision detected in the next 24 hours")
     else:
-        print(f"{len(df_collisions)} alerte(s) détectée(s) :")
+        print(f"{len(df_collisions)} Alerts detected in the next 24 hours :")
         print(df_collisions)
 
         plan = evasive_maneuver(satellite_cible, df_collisions, altitude_evasion_km=10.0)
 
-        print("\nManoeuvres d'évitement calculées :")
+        print("\nEvasive Maneuver :")
         for m in plan:
             heure = m["Heure d'impact"]
             print(
