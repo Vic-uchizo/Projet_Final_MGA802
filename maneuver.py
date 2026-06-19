@@ -1,7 +1,9 @@
 import math
+from sgp4.propagation import false
+
 from orbit import charger_donnees_tle, detecter_collisions
 from skyfield.api import load
-import datetime
+from datetime import timedelta
 
 # Gravitational constant
 GM = 3.986004418e14
@@ -99,40 +101,24 @@ def evasive_maneuver(satellite, df_collisions, altitude_evasion_km=10.0,
 
 
 if __name__ == "__main__":
-
-
-    # Imports the loading and detection functions from collision_detection.py
-
     ts = load.timescale()
 
-    # Load your TLEs (target and debris can come from the same file or not)
-    satellites = charger_donnees_tle('donnees/cosmos-2251-debris.txt')
+    # 1. Charger les TLE
+    satellites_starlink = charger_donnees_tle('donnees/starlink.txt')
+    debris = charger_donnees_tle('donnees/cosmos-2251-debris-collision-course.txt')
 
-    # Pick the target and the list of debris to monitor
-    satellite_cible = satellites[0]
-    debris = satellites[1:]
+    # 2. Définir la fenêtre temporelle à analyser
+    temps_debut = ts.now()
+    temps_fin = ts.from_datetime(temps_debut.utc_datetime() + timedelta(hours=24))
 
-    # Monitoring window: now -> +24h
-    t_debut = ts.now()
-    t_fin = ts.from_datetime(t_debut.utc_datetime() + datetime.timedelta(hours=24))
+    # 3. Choisir UN satellite cible et tester contre tous les débris
 
-    print(f"Recherche de collisions pour {satellite_cible.name}...")
-    df_collisions = detecter_collisions(satellite_cible, debris, t_debut, t_fin, seuil_km=5.0)
+    satellite_cible = next(s for s in satellites_starlink if s.name == "STARLINK-5893")
 
-    if df_collisions.empty:
-        print("No collision detected in the next 24 hours")
-    else:
-        print(f"{len(df_collisions)} Alerts detected in the next 24 hours :")
-        print(df_collisions)
+    resultats = detecter_collisions(satellite_cible, debris, temps_debut, temps_fin, seuil_km=10.0)
 
-        plan = evasive_maneuver(satellite_cible, df_collisions, altitude_evasion_km=10.0)
+    evasive = evasive_maneuver(satellite_cible, resultats, 5,0.0,false)
 
-        print("\nEvasive Maneuver :")
-        for m in plan:
-            heure = m["Heure d'impact"]
-            print(
-                f"  vs {m['Débris']} @ {heure} "
-                f"(distance min {m['Distance Min (km)']} km) -> "
-                f"DeltaV total = {m['total_dv_m_s']:.2f} m/s, "
-                f"temps de transfert = {m['transfer_time_s'] / 60:.1f} min"
-            )
+    print(resultats)
+
+    print(evasive)
