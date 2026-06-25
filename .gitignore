@@ -34,6 +34,8 @@ Thumbs.db
 data/
 donnees/*.txt
 !donnees/exemple_*.txt
+# Données TLE brutes rangées à la racine (re-téléchargées automatiquement)
+donnees_tle/*.txt
 
 # Documentation Sphinx générée (on ne pousse que les sources, pas le build)
 docs/_build/

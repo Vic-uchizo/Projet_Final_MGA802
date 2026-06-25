@@ -319,5 +319,5 @@ def detecter_collisions(satellite_cible, debris, temps_debut, temps_fin, seuil_k
 
 if __name__ == "__main__":
     moteur = MoteurOrbital()
-    debris = moteur.charger_tle('donnees/cosmos-2251-debris.txt')
+    debris = moteur.charger_tle('donnees_tle/cosmos-2251-debris.txt')
     print([d.name for d in debris[-5:]])  # Affiche les 5 derniers noms lus

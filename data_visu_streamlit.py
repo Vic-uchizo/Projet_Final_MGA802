@@ -6,8 +6,8 @@ import os # AJOUT
 # # --- ANCIEN CODE SUPPRIME ---
 # from orbit import charger_donnees_tle, calculer_trajectoire_orbite, detecter_collisions # AJOUT
 # --- NOUVEAU CODE ---
-from orbit import charger_donnees_tle, calculer_trajectoire_orbite, detecter_collisions, obtenir_positions_instantanees # AJOUT
-from maneuver import Manoeuvre
+from debris_orbites.orbit import charger_donnees_tle, calculer_trajectoire_orbite, detecter_collisions, obtenir_positions_instantanees # AJOUT
+from debris_orbites.maneuver import Manoeuvre
 # --------------------
 from skyfield.api import load # AJOUT
 from datetime import timedelta # AJOUT
@@ -348,10 +348,10 @@ def main():
     :rtype: None
     """
     # Chemins des fichiers
-    chemin_csv = os.path.join('donnees', 'positions_instantanees.csv')
-    chemin_csv_d = os.path.join('donnees', 'positions_instantanees_debris.csv')
-    chemin_tle = os.path.join('donnees', 'starlink.txt')
-    chemin_debris = os.path.join('donnees', 'cosmos-2251-debris.txt')
+    chemin_csv = os.path.join('donnees_tle', 'positions_instantanees.csv')
+    chemin_csv_d = os.path.join('donnees_tle', 'positions_instantanees_debris.csv')
+    chemin_tle = os.path.join('donnees_tle', 'starlink.txt')
+    chemin_debris = os.path.join('donnees_tle', 'cosmos-2251-debris.txt')
 
     # Initialisation de l'interface
     app = Interface(chemin_csv, chemin_csv_d, chemin_tle, chemin_debris)

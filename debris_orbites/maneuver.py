@@ -1,7 +1,7 @@
 import math
 from sgp4.propagation import false
 
-from orbit import charger_donnees_tle, detecter_collisions
+from .orbit import charger_donnees_tle, detecter_collisions
 from skyfield.api import load
 from datetime import timedelta
 
@@ -98,7 +98,7 @@ class Manoeuvre:
             print("Aucune collision prévue, maintien de l'orbite")
             return []
         
-        satellites_starlink = charger_donnees_tle('donnees/starlink.txt')
+        satellites_starlink = charger_donnees_tle('donnees_tle/starlink.txt')
         cible = next((s for s in satellites_starlink if s.name == self.satellite_name), None)
 
         r1 = self.orbital_radius(cible)

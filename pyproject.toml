@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "debris-orbites"
+version = "0.1.0"
+description = "Visualisation 3D et détection de collisions entre satellites et débris en orbite basse (LEO) — Projet final MGA802"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Équipe MGA802" },
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "requests",
+    "skyfield",
+    "streamlit",
+]
+
+[project.optional-dependencies]
+# Outils de documentation (cours 10) — installer avec : pip install -e ".[docs]"
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]
+
+[tool.setuptools.packages.find]
+# On ne package que la bibliothèque debris_orbites ; les scripts d'entrée
+# (main.py, data_visu_streamlit.py) restent à la racine et ne sont pas installés.
+include = ["debris_orbites*"]

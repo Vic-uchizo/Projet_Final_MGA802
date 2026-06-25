@@ -6,12 +6,12 @@ Permet de gérer l'exécution des différents modules avec un menu interactif.
 import os
 import sys
 import subprocess
-from donnees.telechargement import obtenir_fichier_tle, GROUPES
+from debris_orbites.donnees.telechargement import obtenir_fichier_tle, GROUPES
 import pandas as pd
 from skyfield.api import load
 
 # Variables de configuration mises à jour (plus de dossiers CSV)
-DOSSIER_DONNEES = 'donnees'
+DOSSIER_DONNEES = 'donnees_tle'
 FICHIER_TLE = os.path.join(DOSSIER_DONNEES, 'starlink.txt')
 FICHIER_DEBRIS = os.path.join(DOSSIER_DONNEES, 'cosmos-2251-debris.txt')
 

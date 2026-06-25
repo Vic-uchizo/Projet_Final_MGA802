@@ -13,8 +13,12 @@ travail de P2 et se trouve dans le module 'orbites/'.
 import os
 import requests
 
-# Dossier ou on sauvegarde les fichiers TLE telecharges
-DOSSIER = os.path.dirname(os.path.abspath(__file__))
+# Dossier ou on sauvegarde les fichiers TLE telecharges.
+# Ce module vit dans debris_orbites/donnees/ ; les fichiers de donnees, eux,
+# sont ranges a la RACINE du projet dans "donnees_tle/" (hors du package).
+# On remonte donc de 3 niveaux pour retrouver la racine, peu importe le cwd.
+_RACINE_PROJET = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DOSSIER = os.path.join(_RACINE_PROJET, "donnees_tle")
 
 # Les groupes de donnees utilises par le projet (choix d'equipe) :
 #   - "starlink"           : les satellites (LEO, ~10 500 objets)
@@ -45,6 +49,7 @@ def telecharger_tle(groupe, fichier):
             "Reessayez plus tard (CelesTrak limite les telechargements repetes)."
         )
 
+    os.makedirs(os.path.dirname(fichier), exist_ok=True)
     with open(fichier, "w") as f:
         f.write(texte)
     print(f"  -> sauvegarde dans {fichier}")
