@@ -45,17 +45,16 @@ class Manoeuvre:
         return demi_major_axis
         
     def orbit_transfer(self,r1, r2):
-        """
-        Calcule un transfert de Hohmann entre deux orbites circulaires r1 (orbite actuelle)
-       :param r1: Rayon de l'orbite initiale en mètres
+        """Calcule un transfert de Hohmann entre deux orbites circulaires.
+
+        :param r1: Rayon de l'orbite initiale (orbite actuelle) en mètres
         :type r1: float
         :param r2: Rayon de l'orbite cible finale en mètres
         :type r2: float
-        :return: Un dictionnaire contenant les composants du transfert :
-            - 'dv1_m_s': Premier delta-V (m/s)
-            - 'dv2_m_s': Second delta-V avec inclinaison potentielle (m/s)
-            - 'total_dv_m_s': Delta-V total cumulé (m/s)
-            - 'transfer_time_s': Durée totale du transfert en secondes
+        :return: Un dictionnaire décrivant le transfert : la poussée
+            d'évitement (m/s), la poussée de re-circularisation avec
+            inclinaison potentielle (m/s), le delta-V total (m/s) et le
+            temps de transfert (s).
         :rtype: dict
         """
 

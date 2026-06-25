@@ -7,8 +7,6 @@ import os
 import sys
 import subprocess
 from debris_orbites.donnees.telechargement import obtenir_fichier_tle, GROUPES
-import pandas as pd
-from skyfield.api import load
 
 # Variables de configuration mises à jour (plus de dossiers CSV)
 DOSSIER_DONNEES = 'donnees_tle'
