@@ -17,6 +17,8 @@ Projet_Final_MGA802/
 │   └── donnees/             #   téléchargement des TLE (CelesTrak)
 ├── donnees_tle/             # données TLE (.txt) — re-téléchargées automatiquement
 ├── docs/                    # documentation Sphinx
+├── presentation/            # support de présentation (deck Streamlit + export PDF)
+├── requirements.txt         # dépendances figées
 └── pyproject.toml           # packaging
 ```
 
@@ -26,6 +28,10 @@ Projet_Final_MGA802/
 python -m venv .venv && source .venv/bin/activate   # (ou .venv\Scripts\activate sous Windows)
 pip install -e .                                    # installe le package et ses dépendances
 ```
+
+**Dépendances principales** (installées automatiquement, versions figées dans
+`requirements.txt`) : `numpy`, `pandas`, `matplotlib`, `requests`, `skyfield`,
+`streamlit`. Pour reproduire l'environnement exact : `pip install -r requirements.txt`.
 
 ## Lancement
 
@@ -72,6 +78,17 @@ make html
 > python -m sphinx -b html docs docs/_build/html
 > ```
 
+## Tests
+
+```bash
+pip install -e ".[test]"   # installe pytest
+pytest -v                   # lance les tests unitaires (ou : python -m pytest -v)
+```
+
+Les tests (`tests/test_orbit.py`) vérifient le chargement des TLE, les ordres de
+grandeur orbitaux (périgée/apogée en LEO), les trajectoires et la cohérence du
+transfert de Hohmann.
+
 ## Utilisation du package en Python
 
 ```python
@@ -81,3 +98,23 @@ moteur = MoteurOrbital()
 satellites = moteur.charger_tle("donnees_tle/starlink.txt")
 positions = moteur.positions_instantanees(satellites, moteur.ts.now())
 ```
+
+## Références & sources
+
+### Données
+- **CelesTrak** — catalogues TLE publics (satellites & débris), MAJ quotidienne :
+  <https://celestrak.org/NORAD/elements/>
+  - Constellation **Starlink** : `GROUP=starlink`
+  - Débris **Cosmos 2251** (collision Iridium 33 / Cosmos 2251, 2009) : `GROUP=cosmos-2251-debris`
+- Format **TLE** (Two-Line Element) — description : <https://en.wikipedia.org/wiki/Two-line_element_set>
+
+### Bibliothèques & modèles
+- **Skyfield** — propagation orbitale haute précision : <https://rhodesmill.org/skyfield/>
+- **SGP4** — modèle standard de propagation des TLE (Vallado et al., *Revisiting Spacetrack Report #3*, AIAA 2006) : <https://pypi.org/project/sgp4/>
+- **Streamlit** (interface web) : <https://streamlit.io/> · **Matplotlib** (3D `mplot3d`) : <https://matplotlib.org/>
+
+### Méthodes
+- **Transfert de Hohmann** — manœuvre d'évitement à deux impulsions (équation *vis-viva*) :
+  <https://en.wikipedia.org/wiki/Hohmann_transfer_orbit>
+- **TCA / conjunction screening** — recherche de l'instant de plus proche approche
+  (résolution semi-analytique par Newton-Raphson sur Δr·Δv = 0), cf. `debris_orbites/orbit.py`.

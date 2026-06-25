@@ -27,6 +27,10 @@ docs = [
     "sphinx",
     "sphinx-rtd-theme",
 ]
+# Outils de test (cours, séance 4) — installer avec : pip install -e ".[test]"
+test = [
+    "pytest",
+]
 
 [tool.setuptools.packages.find]
 # On ne package que la bibliothèque debris_orbites ; les scripts d'entrée
