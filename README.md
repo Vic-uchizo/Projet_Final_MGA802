@@ -43,10 +43,34 @@ streamlit run data_visu_streamlit.py
 
 ## Documentation (Sphinx)
 
+La doc HTML est générée à partir des docstrings du code. Elle n'est **pas**
+versionnée (le dossier `docs/_build/` est ignoré par Git) : il faut la
+(re)générer en local.
+
+**1. Installer Sphinx + le thème** (l'option `[docs]` est indispensable, sinon
+erreur « no theme named 'sphinx_rtd_theme' ») :
+
 ```bash
-pip install -e ".[docs]"          # installe Sphinx
-cd docs && make html              # génère docs/_build/html/index.html
+pip install -e ".[docs]"
 ```
+
+**2. Générer la doc :**
+
+```bash
+# macOS / Linux
+cd docs && make html
+
+# Windows (invite de commandes ou PowerShell)
+cd docs
+make html
+```
+
+**3. Ouvrir** le fichier `docs/_build/html/index.html` dans un navigateur.
+
+> Si `make` est introuvable, la commande directe marche sur tous les systèmes :
+> ```bash
+> python -m sphinx -b html docs docs/_build/html
+> ```
 
 ## Utilisation du package en Python
 
