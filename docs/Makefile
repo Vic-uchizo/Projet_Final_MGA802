@@ -2,7 +2,12 @@
 # Usage : depuis le dossier docs/, lancer « make html » puis ouvrir
 #         _build/html/index.html dans un navigateur.
 
-SPHINXBUILD ?= python -m sphinx
+# On utilise en priorité le Python du venv du projet (../.venv) s'il existe :
+# c'est lui qui contient Sphinx. Sinon on retombe sur python3/python du PATH.
+# Ainsi « make html » marche sans avoir à activer le venv au préalable.
+VENV_PY     := $(wildcard ../.venv/bin/python)
+PYTHON      ?= $(if $(VENV_PY),$(VENV_PY),$(shell command -v python3 || command -v python))
+SPHINXBUILD ?= $(PYTHON) -m sphinx
 SOURCEDIR   = .
 BUILDDIR    = _build
 
