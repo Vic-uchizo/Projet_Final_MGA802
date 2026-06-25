@@ -31,11 +31,18 @@ Référence de l'API
 
 .. toctree::
    :maxdepth: 2
-   :caption: Modules
+   :caption: Package debris_orbites
 
    api/orbit
    api/maneuver
    api/donnees
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Scripts d'entrée
+
+   api/main
+   api/visualisation
 
 Index
 -----
